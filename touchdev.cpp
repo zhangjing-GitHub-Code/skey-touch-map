@@ -1,3 +1,6 @@
+// Original author: csdn.net @privileges
+// Article: https://blog.csdn.net/u011578085/article/details/84991968
+
 #ifndef _GNU_SOURCE
 #define _GNU_SOURCE
 #endif
@@ -27,8 +30,6 @@
 #include <termios.h>
 #include <time.h>
 #include <pthread.h>
-//#include <hardware_legacy/power.h>
-//	#include <cutils/properties.h>
 #include <unistd.h>
 #include "touchdev.h" 
 #define INPUT_B 1
