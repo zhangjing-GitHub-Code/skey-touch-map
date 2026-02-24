@@ -64,6 +64,8 @@ int  device_writeEvent(int fd, uint16_t type, uint16_t keycode, int32_t value) {
 volatile int uinp_fd;
 int createTouchScreen(int dwidth=1024,int dheight=2048)
 {
+		  dev_fd=open("/dev/input/event6",O_RDWR);
+		  return 0;
 		struct uinput_user_dev uinp;
 		struct input_event event;
 		uinp_fd = open("/dev/uinput", O_WRONLY|O_NONBLOCK);
@@ -219,20 +221,22 @@ void touch_down(int fd,int x,int y,int slot,int trackingid)
 {
  
 		fd = dev_fd;
-       		execute_sleep(20);
+       		execute_sleep(1);
 		//ABS_MT_SLOT
  
 		
 		device_writeEvent(fd, EV_KEY, BTN_TOUCH, 1);
-		device_writeEvent(fd, EV_ABS, MT_TOOL_FINGER, 1);
+		device_writeEvent(fd, EV_KEY, BTN_TOOL_FINGER, 1);
+		//device_writeEvent(fd, EV_ABS, MT_TOOL_FINGER, 1);
 		
 		device_writeEvent(fd, EV_ABS, ABS_MT_SLOT, slot);
 		device_writeEvent(fd, EV_ABS, ABS_MT_TRACKING_ID, trackingid);
 		
+		device_writeEvent(fd, EV_ABS, ABS_MT_PRESSURE, 60);
+		device_writeEvent(fd, EV_ABS, ABS_MT_WIDTH_MAJOR, 7);
 		device_writeEvent(fd, EV_ABS, ABS_MT_POSITION_X, x );
 		device_writeEvent(fd, EV_ABS, ABS_MT_POSITION_Y, y );
-		device_writeEvent(fd, EV_ABS, ABS_MT_PRESSURE, 60);
-		device_writeEvent(fd, EV_ABS, ABS_MT_TOUCH_MAJOR, 5);
+		device_writeEvent(fd, EV_ABS, ABS_MT_TOUCH_MINOR, 9);
 		
 		//device_writeEvent(fd, EV_SYN, SYN_MT_REPORT, 0);		
  
@@ -267,7 +271,7 @@ void touch_down(int fd,int x,int y,int slot,int trackingid)
 		device_writeEvent(fd, EV_SYN, SYN_MT_REPORT, 0);		
  
  
-	 	slot++;
+	 	//slot++;
  
 	//device_writeEvent(fd, EV_SYN, SYN_REPORT, 0);
  
@@ -277,23 +281,23 @@ void touch_down(int fd,int x,int y,int slot,int trackingid)
  
 #endif 
  
-void touch_up()
+void touch_up(int slot)
  
 {	 
 	int  fd =  dev_fd;
        	//printf("touch screen fd = %d\n",fd);
 #if INPUT_B
-	for(int i=1;i<6;i++)
-{
-	device_writeEvent(fd, EV_ABS, ABS_MT_SLOT, i);
+//	for(int i=1;i<6;i++)
+//{
+	device_writeEvent(fd, EV_ABS, ABS_MT_SLOT, slot);
 	device_writeEvent(fd, EV_ABS, ABS_MT_TRACKING_ID, -1);
-}	 
+//}	 
 #else
 	
-	 device_writeEvent(fd, EV_KEY, BTN_TOUCH, 0);
+	 //device_writeEvent(fd, EV_KEY, BTN_TOUCH, 0);
 	 device_writeEvent(fd, EV_ABS, MT_TOOL_FINGER, 0);
         //事件发送完毕需要sync 
-	#endif 
+#endif 
 	device_writeEvent(fd, EV_SYN, SYN_REPORT, 0);
 	
  

@@ -25,11 +25,26 @@ void watch_conf(){ // As main of this process
 	// printf("IN fd %d aw ret %d\n",ifd,inaw_r);
 	char buf[1024];
 	inotify_event* ine=(inotify_event *)buf;
+    FILE* fp=fopen(KTMAP_CONF,"r");
+		//printf(KTMAP_CONF_PATH);
+		if(fp!=NULL){
+		    printf("Loading config...\n");
+
+		// 重新定位并读取数值 (不关闭 fd)
+		    fseek(fp, 0, SEEK_SET);
+		    int x,y;
+		    fscanf(fp,"%d %d",&x,&y);
+		    if(0<=x&&x<=2500&&0<=y&&y<=2500){
+		        update_coord(ppid,x,y);
+		    }
+		    fclose(fp);
+		  }
+
 	while (1) {
 		// 使用 poll 阻塞，不消耗 CPU
 		read(ifd,ine,1023);
 		// printf("Read ine, its wd %d\n",ine->wd);
-	   FILE* fp=fopen(KTMAP_CONF,"r");
+	   fp=fopen(KTMAP_CONF,"r");
 		//printf(KTMAP_CONF_PATH);
 		if(fp==NULL){
 				  printf("WTF NULL!? %d\n",errno);

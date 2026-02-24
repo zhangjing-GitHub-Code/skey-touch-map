@@ -7,7 +7,7 @@
 #include <linux/uinput.h>
 #include <errno.h>
 #include "conf.h"
-#include "touchdev.h"
+#include "touchinject.h"
 #include "dconfd.h"
 #include "ipcdef.h"
 
@@ -42,7 +42,7 @@ void handle_coord(int sig, siginfo_t *info, void *context) {
     }
 }
 
-
+int tdfd=-1;
 int main() {
 		  TARGET_X=500,TARGET_Y=700;
     int key_fd, uinput_fd;
@@ -61,9 +61,11 @@ int main() {
         perror("无法拦截按键(Grab Failed)");
         return 1;
     }
-	 if(createTouchScreen(MAX_X,MAX_Y)<0){
+	 tdfd=initTouchInject(MAX_X,MAX_Y);
+	 if(tdfd<0){
 				perror("Create Uinput failed...");
 	 }
+	 printf("[D] T FD %d, err%d\n",tdfd,errno);
 struct sigaction sa;
 sa.sa_sigaction = handle_coord;
 sa.sa_flags = SA_SIGINFO;
@@ -95,18 +97,10 @@ sigaction(SIG_UPDATE_COORD, &sa, NULL);
         if (ev.type == EV_KEY && ev.code == 115) {
 					 // printf("VUP KEY: %d\n",ev.value);
             if (ev.value == 1) { // 按下
-                // 模拟多点触控 Type B 协议
-#if INPUT_B
- 
-					 	touch_down(0,TARGET_X,TARGET_Y, 1,1);
-	device_writeEvent(dev_fd, EV_SYN, SYN_REPORT, 0);
-#else
-					 	touch_down(0,TARGET_X,TARGET_Y, 1);
-	device_writeEvent(3, EV_SYN, SYN_REPORT, 0);
-	#endif 
+					 start_touch(tdfd,TARGET_X,TARGET_Y);
             } 
             else if (ev.value == 0) { // 松开
-					 touch_up();
+					 end_touch(tdfd);
             }
         }
     }

@@ -61,7 +61,7 @@ void touch_down(int fd,int x,int y,int slot);
  
 #endif 
  
-void touch_up();
+void touch_up(int slot);
 
  
  
