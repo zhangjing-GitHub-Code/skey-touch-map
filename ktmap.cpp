@@ -12,8 +12,7 @@
 #include "dconfd.h"
 #include "ipcdef.h"
 
-volatile int TARGET_X;                 // Dummy触摸点 X 坐标
-volatile int TARGET_Y;                // Dummy触摸点 Y 坐标
+volatile int TARGET_X, TARGET_Y;
 
 char* find_keyev(const char* name){
 		  char devname[64];
@@ -51,27 +50,28 @@ int main() {
     struct input_event ev;
 	 char* keyev_path=find_keyev(KEY_DEV_NAME);
 	 printf("Found %s as key event target.\n",keyev_path);
-    // 1. 打开物理按键设备并独占 (屏蔽系统音量功能)
+    // 1. Open S-Key exclusively (Block original function)
     key_fd = open(keyev_path, O_RDONLY);
     if (key_fd < 0) {
-        perror("无法打开按键设备，请确认路径及Root权限");
+        perror("Failed to open S-Key event, check permission/path!");
         return 1;
     }
-    // EVIOCGRAB 为 1 表示独占，系统将无法捕获该设备的任何事件
+    // EVIOCGRAB==1 meaning exclusive
     if (ioctl(key_fd, EVIOCGRAB, 1) < 0) {
-        perror("无法拦截按键(Grab Failed)");
+        perror("GRAB S-Key Failed");
         return 1;
     }
-	 // 替换原有的 touch_init
     TouchProxy* proxy = init_touch_proxy("/dev/input/event6",MAX_X,MAX_Y); 
 	 if(proxy==NULL){
-				perror("Create Uinput failed...");
+				perror("Create uInput proxy failed...");
+				return 1;
 	 }
 	 // printf("[D] T FD %d, err%d\n",proxy,errno);
-struct sigaction sa;
-sa.sa_sigaction = handle_coord;
-sa.sa_flags = SA_SIGINFO;
-sigaction(SIG_UPDATE_COORD, &sa, NULL);
+    struct sigaction sa;
+    sa.sa_sigaction = handle_coord;
+    sa.sa_flags = SA_SIGINFO;
+    sigaction(SIG_UPDATE_COORD, &sa, NULL);
+
     int cpid=fork();
 	 // printf("FORK RETS %d, my parent %d\n",cpid,getppid());
 	 if(cpid==0){
@@ -82,17 +82,22 @@ sigaction(SIG_UPDATE_COORD, &sa, NULL);
 	 }else if(cpid>0){
 		  printf("Main daemon ready.\n");
 	 }else{
-        printf("Fork failed: %d!\n",cpid);
+        printf("Fork failed: %d err %s!\n",cpid,strerror(errno));
 		  exit(1);
 	 }
+
 	 std::thread proxy_thread(run_proxy_loop, proxy);
 	 proxy_thread.detach();
-    // 3. 事件处理循环
 	 bool prevfail=0;
+	 try{
     while (1) {
         if(read(key_fd, &ev, sizeof(ev))<=0){
-					 if(errno==EINTR)continue;
-				if(prevfail)break;
+		      if(errno==EINTR)continue;
+		      printf("Error while reading key event: %s\n",strerror(errno));
+				if(prevfail){
+					 printf("Report problem! exitting...");
+					 break;
+		      }
 				prevfail=1;
 				continue;
  	     }else prevfail=0;
@@ -110,7 +115,11 @@ sigaction(SIG_UPDATE_COORD, &sa, NULL);
             }
         }
     }
-
+	 }catch(...){
+		  printf("GET EXCEPTION\n");
+	 }
+    destroy_proxy(proxy);
+	 free(proxy);
     ioctl(key_fd, EVIOCGRAB, 0);
     ioctl(uinput_fd, UI_DEV_DESTROY);
     close(key_fd);

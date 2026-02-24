@@ -1,3 +1,6 @@
+#ifndef _TOUCHINJECT_H
+#define _TOUCHINJECT_H
+
 #include <linux/input.h>
 #include "conf.h"
 #include <stdio.h>
@@ -26,6 +29,10 @@
 #include <time.h>
 #include <pthread.h>
 #include <unistd.h>
+#include <cmath>
+#include <algorithm>
+
+
  
 
 #define EV(__TYP, __CODE, __VAL) \
@@ -37,26 +44,25 @@
 //每个触摸点之间的时间间隔(ms)
 #define G_DELAY 0.7
 
-#ifndef TOUCHINJECT_H
-#define TOUCHINJECT_H
-
 #include <linux/input.h>
 #include <linux/uinput.h>
-#include <stdbool.h>
+#include <thread>
 
 struct TouchProxy {
-    int phys_fd;   // 物理屏幕节点 FD
-    int v_fd;      // 虚拟克隆设备 FD
+    int phys_fd;   // upstream FD
+    int v_fd;      // proxy output FD
+    std::thread* loop_th=NULL;
     int max_x;
     int max_y;
-    bool virtual_active; // 虚拟按键是否按下
-    bool has_phy_finger; // 物理屏幕上的手指数量
+    bool virtual_active=0;
+    bool has_phy_finger=0;
+    volatile bool safe_stop=0;
 };
 
-// 初始化：读取物理设备属性并创建克隆
 TouchProxy* init_touch_proxy(const char* phys_path,int dX=1000,int dY=1500);
 
-// 核心循环：处理事件分发与过滤
+int destroy_proxy(TouchProxy *tp);
+
 void run_proxy_loop(TouchProxy* proxy);
 
 // 供外部调用的实时映射接口
@@ -64,4 +70,4 @@ void set_virtual_touch_state(TouchProxy* proxy, int x, int y, bool down);
 
 void cleanup_proxy(TouchProxy* proxy);
 
-#endif
+#endif // _TOUCHINJECT_H

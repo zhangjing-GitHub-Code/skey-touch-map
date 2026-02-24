@@ -21,7 +21,7 @@ Feature plans:
 (My bad, I added `libconfig` as dependency but not used currently, you have to install the library to compile)
 ```bash
 mkdir -p out
-g++ touchdev.cpp dconfd.cpp ktmap.cpp -lconfig++ -o out/ktmap
+g++ touchinject.cpp dconfd.cpp ktmap.cpp -lconfig++ -o out/ktmap
 # Then run as root
 sudo out/ktmap
 ```
