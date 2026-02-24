@@ -5,6 +5,7 @@
 #include <fcntl.h>
 #include <linux/input.h>
 #include <linux/uinput.h>
+#include <thread>
 #include <errno.h>
 #include "conf.h"
 #include "touchinject.h"
@@ -61,11 +62,12 @@ int main() {
         perror("无法拦截按键(Grab Failed)");
         return 1;
     }
-	 tdfd=initTouchInject(MAX_X,MAX_Y);
-	 if(tdfd<0){
+	 // 替换原有的 touch_init
+    TouchProxy* proxy = init_touch_proxy("/dev/input/event6",MAX_X,MAX_Y); 
+	 if(proxy==NULL){
 				perror("Create Uinput failed...");
 	 }
-	 printf("[D] T FD %d, err%d\n",tdfd,errno);
+	 // printf("[D] T FD %d, err%d\n",proxy,errno);
 struct sigaction sa;
 sa.sa_sigaction = handle_coord;
 sa.sa_flags = SA_SIGINFO;
@@ -83,6 +85,8 @@ sigaction(SIG_UPDATE_COORD, &sa, NULL);
         printf("Fork failed: %d!\n",cpid);
 		  exit(1);
 	 }
+	 std::thread proxy_thread(run_proxy_loop, proxy);
+	 proxy_thread.detach();
     // 3. 事件处理循环
 	 bool prevfail=0;
     while (1) {
@@ -97,10 +101,12 @@ sigaction(SIG_UPDATE_COORD, &sa, NULL);
         if (ev.type == EV_KEY && ev.code == 115) {
 					 // printf("VUP KEY: %d\n",ev.value);
             if (ev.value == 1) { // 按下
-					 start_touch(tdfd,TARGET_X,TARGET_Y);
+					 //start_touch(tdfd,TARGET_X,TARGET_Y);
+					 set_virtual_touch_state(proxy, TARGET_X, TARGET_Y, true);
             } 
             else if (ev.value == 0) { // 松开
-					 end_touch(tdfd);
+					 set_virtual_touch_state(proxy, TARGET_X, TARGET_Y, false);
+					 //end_touch(tdfd);
             }
         }
     }
