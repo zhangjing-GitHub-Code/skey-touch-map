@@ -56,7 +56,7 @@ struct TouchProxy {
     int max_y;
     bool virtual_active=0;
     bool has_phy_finger=0;
-    volatile bool safe_stop=0;
+    volatile bool safe_stop=0,pause_fwd=0;
 };
 
 TouchProxy* init_touch_proxy(const char* phys_path,int dX=1000,int dY=1500);

@@ -96,12 +96,17 @@ TouchProxy* init_touch_proxy(const char* phys_path,int dX,int dY) {
 }
 int destroy_proxy(TouchProxy *tp){
     tp->safe_stop=1;
-	 while(tp->safe_stop)sleep(1);
+	 pthread_kill(tp->loop_th->native_handle(),SIGUSR1);
+	 sleep(1);
+	 if(tp->safe_stop)
+	     pthread_kill(tp->loop_th->native_handle(),SIGSTOP);
     ioctl(tp->phys_fd, EVIOCGRAB, 0);
 	 close(tp->phys_fd);
+	 //while(tp->safe_stop)sleep(1);
 	 close(tp->v_fd);
 }
 
+input_absinfo sinfo;
 void set_virtual_touch_state(TouchProxy* proxy, int x, int y, bool down) {
     if(axinfo_ok){
 				//printf("Trans %d,%d ->",x,y);
@@ -110,10 +115,11 @@ void set_virtual_touch_state(TouchProxy* proxy, int x, int y, bool down) {
 				//printf(" %d,%d; map range[%d,%d] -> [%d,%d]\n",x,y,
 				//					 dx_max,dy_max,absY.maximum,absY.maximum);
     }
-	 input_absinfo sinfo;
 	 ioctl(proxy->phys_fd, EVIOCGABS(ABS_MT_SLOT), &sinfo);
 
     proxy->virtual_active = down;
+    //write(proxy->phys_fd,&EV(EV_ABS, ABS_MT_SLOT, 9),sizeof(input_event));
+    //write(proxy->phys_fd,&EV(EV_SYN, SYN_REPORT, 0),sizeof(input_event));
     // 使用 Slot 9 避免与物理手指冲突
     struct input_event evs[16];
     int i = 0;
@@ -140,14 +146,18 @@ void set_virtual_touch_state(TouchProxy* proxy, int x, int y, bool down) {
     }
     evs[i++] = {{0,0}, EV_SYN, SYN_REPORT, 0};
     evs[i++] = {{0,0}, EV_ABS, ABS_MT_SLOT, sinfo.value};
+	 proxy->pause_fwd=1;
     for(int j=0; j<i; j++) write(proxy->v_fd, &evs[j], sizeof(struct input_event));
+	 proxy->pause_fwd=0;
 }
 
 void run_proxy_loop(TouchProxy* proxy) {
     struct input_event ev;
     while (read(proxy->phys_fd, &ev, sizeof(ev)) > 0) {
         if(proxy->safe_stop)break;
+		  while(proxy->pause_fwd)usleep(1);
         // 核心过滤逻辑：防止物理抬起信号打断虚拟触摸
+		  if(ev.type==EV_ABS&& ev.code==ABS_MT_SLOT&&ev.value==9)continue;
         if (ev.type == EV_KEY && (ev.code == BTN_TOUCH || ev.code == BTN_TOOL_FINGER)) {
             if (ev.value == 1) proxy->has_phy_finger=1;
             if (ev.value == 0) proxy->has_phy_finger=0;

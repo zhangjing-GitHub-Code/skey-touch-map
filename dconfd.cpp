@@ -2,7 +2,7 @@
 
 using namespace libconfig;
 
-void update_coord(pid_t daemon_pid, int x, int y) {
+void update_coord(pid_t daemon_pid, short x, short y) {
     union sigval value;
     // 将两个16位坐标打包进一个32位int
     value.sival_int = (x << 16) | (y & 0xFFFF);
@@ -51,9 +51,8 @@ void watch_conf(){ // As main of this process
 				  continue;
 		  }
 
-		// 重新定位并读取数值 (不关闭 fd)
-		fseek(fp, 0, SEEK_SET);
-				int x,y;
+		// fseek(fp, 0, SEEK_SET);
+				short x,y;
 				fscanf(fp,"%d %d",&x,&y);
 				if(0<=x&&x<=2500&&0<=y&&y<=2500){
 						  update_coord(ppid,x,y);

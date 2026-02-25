@@ -12,7 +12,9 @@
 #include "dconfd.h"
 #include "ipcdef.h"
 
-volatile int TARGET_X, TARGET_Y;
+volatile short TARGET_X, TARGET_Y;
+int key_fd, uinput_fd;
+TouchProxy* proxy = NULL;
 
 char* find_keyev(const char* name){
 		  char devname[64];
@@ -41,11 +43,19 @@ void handle_coord(int sig, siginfo_t *info, void *context) {
 		  printf("Set coord: %d,%d\n",TARGET_X,TARGET_Y);
     }
 }
+void cleanup(int signal=0){
+    destroy_proxy(proxy);
+	 free(proxy);
+    ioctl(key_fd, EVIOCGRAB, 0);
+    ioctl(uinput_fd, UI_DEV_DESTROY);
+    close(key_fd);
+    close(uinput_fd);
+	 exit(0);
+}
 
 int tdfd=-1;
 int main() {
 		  TARGET_X=500,TARGET_Y=700;
-    int key_fd, uinput_fd;
     struct uinput_setup usetup;
     struct input_event ev;
 	 char* keyev_path=find_keyev(KEY_DEV_NAME);
@@ -61,7 +71,7 @@ int main() {
         perror("GRAB S-Key Failed");
         return 1;
     }
-    TouchProxy* proxy = init_touch_proxy("/dev/input/event6",MAX_X,MAX_Y); 
+    proxy = init_touch_proxy("/dev/input/event6",MAX_X,MAX_Y); 
 	 if(proxy==NULL){
 				perror("Create uInput proxy failed...");
 				return 1;
@@ -71,6 +81,10 @@ int main() {
     sa.sa_sigaction = handle_coord;
     sa.sa_flags = SA_SIGINFO;
     sigaction(SIG_UPDATE_COORD, &sa, NULL);
+	 signal(SIGSTOP,cleanup);
+	 signal(SIGINT,cleanup);
+	 signal(SIGSEGV,cleanup);
+	 signal(SIGKILL,cleanup);
 
     int cpid=fork();
 	 // printf("FORK RETS %d, my parent %d\n",cpid,getppid());
@@ -88,6 +102,7 @@ int main() {
 
 	 std::thread proxy_thread(run_proxy_loop, proxy);
 	 proxy_thread.detach();
+	 proxy->loop_th=&proxy_thread;
 	 bool prevfail=0;
 	 try{
     while (1) {
@@ -118,12 +133,7 @@ int main() {
 	 }catch(...){
 		  printf("GET EXCEPTION\n");
 	 }
-    destroy_proxy(proxy);
-	 free(proxy);
-    ioctl(key_fd, EVIOCGRAB, 0);
-    ioctl(uinput_fd, UI_DEV_DESTROY);
-    close(key_fd);
-    close(uinput_fd);
+	 cleanup();
     return 0;
 }
 
